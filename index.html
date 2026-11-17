@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function () {
+        window.addEventListener(
+          'error',
+          function (e) {
+            if (
+              e &&
+              typeof e.filename === 'string' &&
+              e.filename.indexOf('chrome-extension://') === 0
+            ) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+            }
+          },
+          true
+        );
+        window.addEventListener(
+          'unhandledrejection',
+          function (e) {
+            var reason = e && e.reason;
+            var stack = reason && typeof reason.stack === 'string' ? reason.stack : '';
+            if (stack.indexOf('chrome-extension://') !== -1) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+            }
+          },
+          true
+        );
+      })();
+    </script>
+    <title>TuneMatch — Mathematical Audio Vibe & Music Recommender</title>
+    <meta
+      name="description"
+      content="Discover music by its mathematical DNA. Explore 7D acoustic feature matching, K-Means mood clusters, cosine similarity recommendations, and 30-second audio previews."
+    />
+    <meta property="og:title" content="TuneMatch — Mathematical Audio Vibe & Music Recommender" />
+    <meta
+      property="og:description"
+      content="Discover music by its mathematical DNA with 7D acoustic vector matching and real-time synth previews."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-[#09090B] text-zinc-50 antialiased selection:bg-[#1DB954]/30 selection:text-white">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

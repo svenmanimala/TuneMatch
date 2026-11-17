@@ -1,0 +1,6 @@
+{
+  "name": "TuneMatch",
+  "description": "AI-powered content-based audio vibe and music recommender exploring 7D acoustic DNA, K-Means mood clusters, and cosine similarity.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
