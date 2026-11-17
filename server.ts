@@ -2,7 +2,6 @@ import express from 'express';
 import type { Request, Response } from 'express';
 import path from 'path';
 import { Readable } from 'stream';
-import { fileURLToPath } from 'url';
 import { TRACK_CATALOG } from './src/data/catalog.ts';
 import {
   CLUSTER_META,
@@ -11,9 +10,6 @@ import {
   rankRecommendations,
 } from './src/shared/dnaMath.ts';
 import type { Track } from './src/types/music.ts';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 interface ITunesSongResult {
   wrapperType?: string;
@@ -148,7 +144,11 @@ function getPeerSearchTerms(seed: Track): string[] {
 
   const primaryArtist = seed.artist.split(/[,&]/)[0]?.trim();
   if (primaryArtist) {
-    terms.add(primaryArtist);
+    if (lang !== 'English' && primaryArtist.length <= 6) {
+      terms.add(`${primaryArtist} ${lang}`);
+    } else {
+      terms.add(primaryArtist);
+    }
   }
 
   // Prioritize same-language candidates when seed is non-English, while keeping 1 genre-matched peer query for strong cross-language fits
@@ -157,26 +157,132 @@ function getPeerSearchTerms(seed: Track): string[] {
     terms.add('karol g feid');
     terms.add('shakira rosalia');
     terms.add('musica latina reggaeton');
+    terms.add('luis fonsi daddy yankee');
+    terms.add('j balvin maluma');
   } else if (lang === 'Korean') {
     terms.add('newjeans aespa');
     terms.add('bts jung kook');
     terms.add('blackpink ive');
+    terms.add('stray kids seventeen');
+    terms.add('iu taeyeon');
     terms.add('k-pop hits');
   } else if (lang === 'Japanese') {
     terms.add('yoasobi kenshi yonezu');
     terms.add('fujii kaze ado');
     terms.add('vaundy official hige dandism');
-    terms.add('j-pop');
+    terms.add('radwimps king gnu');
+    terms.add('aimyon back number');
+    terms.add('j-pop hits');
+  } else if (lang === 'Malayalam') {
+    terms.add('malayalam hits');
+    terms.add('sushin shyam malayalam');
+    terms.add('vineeth sreenivasan');
+    terms.add('shaan rahman');
+    terms.add('hesham abdul wahab malayalam');
+    terms.add('vijay yesudas malayalam');
+    terms.add('gopi sundar malayalam');
+  } else if (lang === 'Tamil') {
+    terms.add('anirudh ravichander tamil');
+    terms.add('ar rahman tamil');
+    terms.add('yuvan shankar raja');
+    terms.add('harris jayaraj tamil');
+    terms.add('gv prakash tamil');
+    terms.add('tamil hits');
+  } else if (lang === 'Telugu') {
+    terms.add('thaman s telugu');
+    terms.add('devi sri prasad telugu');
+    terms.add('mm keeravani telugu');
+    terms.add('sid sriram telugu');
+    terms.add('telugu hits');
+  } else if (lang === 'Kannada') {
+    terms.add('kannada hits');
+    terms.add('vijay prakash kannada');
+    terms.add('ajaneesh loknath kannada');
+    terms.add('ravi basrur kannada');
+    terms.add('sanjith hegde kannada');
+  } else if (lang === 'Punjabi') {
+    terms.add('diljit dosanjh');
+    terms.add('ap dhillon');
+    terms.add('karan aujla');
+    terms.add('sidhu moose wala');
+    terms.add('shubh punjabi');
+    terms.add('punjabi hits');
+  } else if (lang === 'Marathi') {
+    terms.add('ajay atul marathi');
+    terms.add('marathi hits');
+    terms.add('shankar mahadevan marathi');
+    terms.add('swapnil bandodkar');
+    terms.add('bela shende marathi');
+  } else if (lang === 'Bengali') {
+    terms.add('anupam roy bengali');
+    terms.add('rupam islam fossils');
+    terms.add('bengali hits');
+    terms.add('arijit singh bengali');
+    terms.add('shreya ghoshal bengali');
+  } else if (lang === 'Gujarati') {
+    terms.add('aditya gadhvi');
+    terms.add('kirtidan gadhvi');
+    terms.add('kinjal dave gujarati');
+    terms.add('geeta rabari gujarati');
+    terms.add('gujarati garba hits');
+  } else if (lang === 'Bhojpuri') {
+    terms.add('pawan singh bhojpuri');
+    terms.add('khesari lal yadav');
+    terms.add('shilpi raj bhojpuri');
+    terms.add('bhojpuri hits');
+  } else if (lang === 'Odia') {
+    terms.add('humane sagar odia');
+    terms.add('aseema panda odia');
+    terms.add('odia hits');
+  } else if (lang === 'Assamese') {
+    terms.add('zubeen garg assamese');
+    terms.add('papon assamese');
+    terms.add('assamese bihu hits');
+  } else if (lang === 'Haryanvi') {
+    terms.add('masoom sharma haryanvi');
+    terms.add('raju punjabi haryanvi');
+    terms.add('haryanvi hits');
+  } else if (lang === 'Urdu') {
+    terms.add('coke studio pakistan');
+    terms.add('rahat fateh ali khan');
+    terms.add('ali sethi kaifi khalil');
+    terms.add('nusrat fateh ali khan');
+    terms.add('urdu hits');
+  } else if (lang === 'Turkish') {
+    terms.add('tarkan turkish');
+    terms.add('mabel matiz sezen aksu');
+    terms.add('ezhel duman');
+    terms.add('turkish pop');
+  } else if (lang === 'Indonesian') {
+    terms.add('tulus nadin amizah');
+    terms.add('mahalini tiara andini');
+    terms.add('sheila on 7 dewa 19');
+    terms.add('indonesian pop');
+  } else if (lang === 'Vietnamese') {
+    terms.add('son tung mtp');
+    terms.add('hoang thuy linh vpop');
+    terms.add('bich phuong den vau');
+    terms.add('vietnamese pop');
+  } else if (lang === 'Tagalog') {
+    terms.add('ben&ben opm');
+    terms.add('moira dela torre zack tabudlo');
+    terms.add('sb19 bini opm');
+    terms.add('opm tagalog hits');
+  } else if (lang === 'Polish') {
+    terms.add('dawid podsiadlo sanah');
+    terms.add('taco hemingway mata');
+    terms.add('polish pop');
   } else if (lang === 'Hindi') {
     terms.add('arijit singh pritam');
     terms.add('anirudh shreya ghoshal');
     terms.add('atif aslam bollywood');
+    terms.add('arman malik sachin jigar');
     terms.add('hindi romantic hits');
   } else if (lang === 'French') {
     terms.add('stromae angele');
     terms.add('aya nakamura indila');
     terms.add('french pop chanson');
-    terms.add('daft punk phoenix');
+    terms.add('gims vianney');
   } else if (lang === 'Portuguese') {
     terms.add('anitta ludmilla');
     terms.add('seu jorge djavan');
@@ -185,49 +291,57 @@ function getPeerSearchTerms(seed: Track): string[] {
   } else if (lang === 'Arabic') {
     terms.add('amr diab elissa');
     terms.add('nancy ajram tamer hosny');
+    terms.add('sherine assala');
     terms.add('arabic pop');
   } else if (lang === 'Chinese') {
     terms.add('jay chou eric chou');
-    terms.add('mandopop');
+    terms.add('mandopop hits');
     terms.add('cantopop eason chan');
+    terms.add('jj lin gem');
   } else if (lang === 'German') {
     terms.add('apache 207 nena');
+    terms.add('mark forster cro');
     terms.add('german pop');
   } else if (lang === 'Italian') {
     terms.add('maneskin mahmood');
+    terms.add('lazza geolier');
     terms.add('italian pop');
   } else if (lang === 'Russian') {
     terms.add('russian pop');
     terms.add('miyagi & andy panda');
+    terms.add('monetochka zivert');
   }
 
-  if (genre.includes('r&b') || genre.includes('soul')) {
-    terms.add('the weeknd after hours');
-    terms.add('frank ocean blonde');
-    terms.add('sza snooze');
-  } else if (genre.includes('hip-hop') || genre.includes('rap')) {
-    terms.add('kendrick lamar');
-    terms.add('travis scott');
-    terms.add('drake');
-  } else if (genre.includes('rock') || genre.includes('alternative')) {
-    terms.add('tame impala currents');
-    terms.add('arctic monkeys am');
-    terms.add('radiohead');
-  } else if (genre.includes('electronic') || genre.includes('dance')) {
-    terms.add('daft punk discovery');
-    terms.add('rufus du sol');
-    terms.add('odesza');
-  } else if (genre.includes('indie') || genre.includes('folk')) {
-    terms.add('beach house space song');
-    terms.add('bon iver');
-    terms.add('phoebe bridgers');
-  } else if (genre.includes('jazz')) {
-    terms.add('miles davis');
-    terms.add('kamasi washington');
-  } else {
-    terms.add('dua lipa future nostalgia');
-    terms.add('the weeknd blinding lights');
-    terms.add('billie eilish');
+  // Add English/global genre peer queries only for English seeds or when language-specific queries are sparse
+  if (lang === 'English' || terms.size < 4) {
+    if (genre.includes('r&b') || genre.includes('soul')) {
+      terms.add('the weeknd after hours');
+      terms.add('frank ocean blonde');
+      terms.add('sza snooze');
+    } else if (genre.includes('hip-hop') || genre.includes('rap')) {
+      terms.add('kendrick lamar');
+      terms.add('travis scott');
+      terms.add('drake');
+    } else if (genre.includes('rock') || genre.includes('alternative')) {
+      terms.add('tame impala currents');
+      terms.add('arctic monkeys am');
+      terms.add('radiohead');
+    } else if (genre.includes('electronic') || genre.includes('dance')) {
+      terms.add('daft punk discovery');
+      terms.add('rufus du sol');
+      terms.add('odesza');
+    } else if (genre.includes('indie') || genre.includes('folk')) {
+      terms.add('beach house space song');
+      terms.add('bon iver');
+      terms.add('phoebe bridgers');
+    } else if (genre.includes('jazz')) {
+      terms.add('miles davis');
+      terms.add('kamasi washington');
+    } else {
+      terms.add('dua lipa future nostalgia');
+      terms.add('the weeknd blinding lights');
+      terms.add('billie eilish');
+    }
   }
 
   return Array.from(terms).slice(0, 8);
@@ -500,7 +614,7 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distDir = path.resolve(__dirname, 'dist');
+    const distDir = path.resolve(import.meta.dirname, 'dist');
     app.use(express.static(distDir));
     app.get('/{*splat}', (_req: Request, res: Response) => {
       res.sendFile(path.join(distDir, 'index.html'));
@@ -508,7 +622,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`TuneMatch server running on http://0.0.0.0:${PORT}`);
+    console.log(`TuneMatch server running on http://localhost:${PORT}`);
   });
 }
 
