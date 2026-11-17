@@ -75,7 +75,7 @@ TuneMatch is a dark-mode, Spotify-inspired front-end experience that turns song 
 ```text
 ┌──────────────────────────────────────────────────────────────────────┐
 │                          App Shell (State Machine)                   │
-│   State: 'search' ──(submit)──▶ 'analyzing' ──(2.8s)──▶ 'results'   │
+│   State: 'search' ──(submit)──▶ 'analyzing' ──(2.8s)──▶ 'results'    │ 
 └──────────────┬───────────────────────────┬───────────────────────────┘
                │                           │
                ▼                           ▼
@@ -89,7 +89,7 @@ TuneMatch is a dark-mode, Spotify-inspired front-end experience that turns song 
                ▼                                    ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │                         Interactive View Layer                       │
-│  • TopNavBar (TuneMatch logo + Offline 25K Catalog Ready pill)        │
+│  • TopNavBar (TuneMatch logo + Offline 25K Catalog Ready pill)       │
 │  • HeroSearchView (Glassmorphic input, autocomplete, sample pills)   │
 │  • NeuralCurationVisualizer (7-node orbital mesh + sonar + captions) │
 │  • ResultsDashboard (SeedTrackDNA + 6 staggered RecommendationCards) │
