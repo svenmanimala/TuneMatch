@@ -1,5 +1,6 @@
 import express from 'express';
 import type { Request, Response } from 'express';
+import http from 'http';
 import path from 'path';
 import { Readable } from 'stream';
 import { TRACK_CATALOG } from './src/data/catalog.ts';
@@ -403,6 +404,7 @@ function pickBestSeedHit(
 
 async function startServer() {
   const app = express();
+  const httpServer = http.createServer(app);
   const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json());
@@ -623,7 +625,10 @@ async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        ws: { server: httpServer },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -635,7 +640,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`TuneMatch server running on http://localhost:${PORT}`);
   });
 }

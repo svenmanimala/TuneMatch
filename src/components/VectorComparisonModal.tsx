@@ -116,14 +116,15 @@ export function VectorComparisonModal({
   );
 
   const currentIdx = allNeighbors.findIndex((n) => n.id === selectedNeighbor.id);
+  const safeIdx = currentIdx >= 0 ? currentIdx : 0;
   const handlePrev = () => {
     if (allNeighbors.length === 0) return;
-    const prevIdx = (currentIdx - 1 + allNeighbors.length) % allNeighbors.length;
+    const prevIdx = (safeIdx - 1 + allNeighbors.length) % allNeighbors.length;
     onSelectNeighbor(allNeighbors[prevIdx]);
   };
   const handleNext = () => {
     if (allNeighbors.length === 0) return;
-    const nextIdx = (currentIdx + 1) % allNeighbors.length;
+    const nextIdx = (safeIdx + 1) % allNeighbors.length;
     onSelectNeighbor(allNeighbors[nextIdx]);
   };
 
@@ -251,7 +252,7 @@ export function VectorComparisonModal({
                 <div className="flex items-center gap-1.5">
                   <span className="h-2 w-2 shrink-0 rounded-full bg-[#38BDF8]" />
                   <span className="font-mono text-[10px] uppercase tracking-wider text-[#38BDF8]">
-                    Selected Neighbor #{currentIdx + 1}
+                    Selected Neighbor #{currentIdx >= 0 ? currentIdx + 1 : '—'}
                   </span>
                 </div>
                 <div className="truncate text-sm font-semibold text-zinc-50">

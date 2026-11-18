@@ -373,10 +373,8 @@ export function extractDspFromAudioBuffer(buffer: AudioBuffer): DspAnalysisResul
 
   // 5. Vocal band modulation & syllabic cadence for instrumentalness + speechiness
   let vocalMean = 0;
-  let specMean = 0;
   for (let i = 0; i < numFrames; i++) {
     vocalMean += vocalEnv[i];
-    specMean += Math.max(1e-6, onsetFlux[i]);
   }
   vocalMean /= numFrames;
 
@@ -457,7 +455,7 @@ export function extractDspFromAudioBuffer(buffer: AudioBuffer): DspAnalysisResul
   const modPresence = clamp((vocalCv - 0.18) / 0.55, 0, 1);
   const wideFactor = clamp((stereoWidth - 0.28) / 0.5, 0, 1);
   const instrumentalness = Number(
-    clamp((1 - vocalFocus * 0.6 - modPresence * 0.3) * 0.72 + wideFactor * 0.22 - (specMean > 0 ? 0 : 0), 0.01, 0.94).toFixed(2)
+    clamp((1 - vocalFocus * 0.6 - modPresence * 0.3) * 0.72 + wideFactor * 0.22, 0.01, 0.94).toFixed(2)
   );
 
   // Speechiness: rapid syllabic consonant transients + high ZCR variance
@@ -489,7 +487,7 @@ export async function analyzeTrackAudio(
   track: Track,
   signal?: AbortSignal
 ): Promise<Track> {
-  if (!track.previewUrl) return track;
+  if (!track.previewUrl || signal?.aborted) return track;
 
   const cacheKey = track.previewUrl;
   const cached = dspResultCache.get(cacheKey);
@@ -509,14 +507,11 @@ export async function analyzeTrackAudio(
         const ctx = getDecodeAudioContext();
         if (!ctx) return null;
 
-        const res = await fetch(getProxiedAudioUrl(track.previewUrl!), { signal });
+        const res = await fetch(getProxiedAudioUrl(cacheKey));
         if (!res.ok) return null;
         const arrayBuf = await res.arrayBuffer();
-        if (signal?.aborted) return null;
 
-        const audioBuf = await ctx.decodeAudioData(arrayBuf.slice(0));
-        if (signal?.aborted) return null;
-
+        const audioBuf = await ctx.decodeAudioData(arrayBuf);
         const extracted = extractDspFromAudioBuffer(audioBuf);
         if (extracted) {
           if (dspResultCache.size > 400) {
@@ -536,8 +531,25 @@ export async function analyzeTrackAudio(
     inFlightRequests.set(cacheKey, pending);
   }
 
-  const result = await pending;
-  if (!result) return track;
+  let result: DspAnalysisResult | null = null;
+  if (signal) {
+    result = await new Promise<DspAnalysisResult | null>((resolve) => {
+      if (signal.aborted) {
+        resolve(null);
+        return;
+      }
+      const onAbort = () => resolve(null);
+      signal.addEventListener('abort', onAbort, { once: true });
+      void pending!.then((res) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(res);
+      });
+    });
+  } else {
+    result = await pending;
+  }
+
+  if (!result || signal?.aborted) return track;
 
   return {
     ...track,

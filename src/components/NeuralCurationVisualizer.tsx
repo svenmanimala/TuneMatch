@@ -291,9 +291,19 @@ export function NeuralCurationVisualizer({
                   opacity: 0,
                 }}
                 animate={{
-                  x: [startX, endX],
-                  y: [startY, endY],
-                  scale: [0.22, 0.72, 1.48],
+                  x: [
+                    startX,
+                    startX + (endX - startX) * 0.3,
+                    startX + (endX - startX) * 0.78,
+                    endX,
+                  ],
+                  y: [
+                    startY,
+                    startY + (endY - startY) * 0.3,
+                    startY + (endY - startY) * 0.78,
+                    endY,
+                  ],
+                  scale: [0.22, 0.58, 1.18, 1.48],
                   opacity: [0, 0.95, 1, 0],
                 }}
                 transition={{

@@ -98,22 +98,24 @@ export default function App() {
 
       let livePool = [...pool];
       let hasMountedResults = false;
+      let isPoolDone = pool.length === 0;
+      let completedCount = 0;
 
       const finishSeedAndPool = async (): Promise<{
         seed: Track;
         poolSnapshot: Track[];
         completed: number;
+        isDone: boolean;
       }> => {
         const analyzedSeed = await analyzeTrackAudio(initialSeed, controller.signal);
         if (controller.signal.aborted || analysisNonceRef.current !== nonce) {
-          return { seed: initialSeed, poolSnapshot: livePool, completed: 0 };
+          return { seed: initialSeed, poolSnapshot: livePool, completed: 0, isDone: true };
         }
 
         if (hasMountedResults) {
           setSeedTrack(analyzedSeed);
         }
 
-        let completedCount = 0;
         const poolPromise = analyzePoolAudio(
           pool,
           (updated, completed, total) => {
@@ -140,6 +142,8 @@ export default function App() {
           6
         ).then((finalPool) => {
           if (controller.signal.aborted || analysisNonceRef.current !== nonce) return;
+          isPoolDone = true;
+          completedCount = finalPool.length;
           livePool = finalPool;
           if (hasMountedResults) {
             setDspProgress({
@@ -161,7 +165,12 @@ export default function App() {
           new Promise<void>((resolve) => window.setTimeout(resolve, 1100)),
         ]);
 
-        return { seed: analyzedSeed, poolSnapshot: livePool, completed: completedCount };
+        return {
+          seed: analyzedSeed,
+          poolSnapshot: livePool,
+          completed: completedCount,
+          isDone: isPoolDone,
+        };
       };
 
       const markMounted = () => {
@@ -250,13 +259,16 @@ export default function App() {
       markMounted();
       setSeedTrack(dspSnapshot.seed);
       setCandidatePool(dspSnapshot.poolSnapshot);
-      const alreadyDone = dspSnapshot.poolSnapshot.filter(
-        (t) => t.analysisSource === 'audio-dsp'
-      ).length;
+      const decodedCount = dspSnapshot.isDone
+        ? dspSnapshot.poolSnapshot.length
+        : Math.max(
+            dspSnapshot.completed,
+            dspSnapshot.poolSnapshot.filter((t) => t.analysisSource === 'audio-dsp').length
+          );
       setDspProgress({
-        completed: alreadyDone,
+        completed: decodedCount,
         total: dspSnapshot.poolSnapshot.length,
-        isAnalyzing: alreadyDone < dspSnapshot.poolSnapshot.length,
+        isAnalyzing: !dspSnapshot.isDone,
       });
       setStage('results');
     },
