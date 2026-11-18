@@ -1,14 +1,18 @@
 import { ArrowLeft, AudioLines, ChevronDown, ChevronUp, Radar, Sparkles } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useState } from 'react';
+import type { DspAnalysisProgress } from '../App';
 import { AUDIO_TRAITS_META } from '../data/catalog';
-import { RecommendedTrack, Track, TraitKey } from '../types/music';
+import { MatchMode, RecommendedTrack, Track, TraitKey } from '../types/music';
 import { AlbumArtwork } from './AlbumArtwork';
 import { VectorComparisonModal } from './VectorComparisonModal';
 
 interface ResultsDashboardProps {
   seedTrack: Track;
   recommendations: RecommendedTrack[];
+  matchMode: MatchMode;
+  onMatchModeChange: (mode: MatchMode) => void;
+  dspProgress: DspAnalysisProgress;
   activeTrackId: string | null;
   isPlaying: boolean;
   onTogglePlay: (track: Track) => void;
@@ -147,6 +151,9 @@ function getGridConfigForViewport(): GridConfig {
 export function ResultsDashboard({
   seedTrack,
   recommendations,
+  matchMode,
+  onMatchModeChange,
+  dspProgress,
   activeTrackId,
   isPlaying,
   onTogglePlay,
@@ -203,6 +210,13 @@ export function ResultsDashboard({
       .map(([lang, count]) => `${lang} (${count})`)
       .join(', ');
   }, [visibleRecommendations]);
+
+  const activeSelectedNeighbor = useMemo(() => {
+    if (!selectedNeighbor) return null;
+    return recommendations.find((r) => r.id === selectedNeighbor.id) ?? selectedNeighbor;
+  }, [selectedNeighbor, recommendations]);
+
+  const seedDspReady = seedTrack.analysisSource === 'audio-dsp';
 
   const hoveredMeta = hoveredTrait
     ? AUDIO_TRAITS_META.find((t) => t.key === hoveredTrait.key)
@@ -282,10 +296,21 @@ export function ResultsDashboard({
                   <AudioLines className="h-3.5 w-3.5" aria-hidden="true" />
                   Cluster #{seedTrack.clusterId} · {seedTrack.clusterLabel}
                 </span>
-                {seedTrack.isSynthesized && (
+                {seedDspReady ? (
+                  <span className="text-xs font-medium text-zinc-300 font-mono tabular-nums">
+                    Audio Waveform Analyzed
+                    {seedTrack.dsp
+                      ? ` · ${seedTrack.dsp.spectralCentroidHz} Hz · ${seedTrack.dsp.dynamicRangeDb.toFixed(1)} dB`
+                      : ''}
+                  </span>
+                ) : seedTrack.isSynthesized ? (
                   <span className="inline-flex items-center gap-1 text-xs font-medium text-zinc-400">
                     <Sparkles className="h-3 w-3 text-[#1ED760]" aria-hidden="true" />
                     Synthesized 7D Profile
+                  </span>
+                ) : (
+                  <span className="text-xs text-zinc-400">
+                    Analyzing 30s audio preview...
                   </span>
                 )}
               </div>
@@ -442,19 +467,68 @@ export function ResultsDashboard({
                 Nearest Cosine Neighbors
               </h3>
               <span className="text-xs text-zinc-500">
-                Click any match to compare 7D vectors
+                Click any match to compare 7D vectors &amp; timbre
               </span>
             </div>
-            {languageSummary && (
-              <p className="mt-1 text-xs text-zinc-400">
-                <span className="text-zinc-500">Languages in results:</span>{' '}
-                <span className="font-medium text-zinc-300">{languageSummary}</span>
-              </p>
-            )}
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
+              {languageSummary && (
+                <span>
+                  <span className="text-zinc-500">Languages:</span>{' '}
+                  <span className="font-medium text-zinc-300">{languageSummary}</span>
+                </span>
+              )}
+              {dspProgress.total > 0 && (
+                <>
+                  <span aria-hidden="true" className="text-zinc-700">
+                    ·
+                  </span>
+                  <span className="font-mono tabular-nums text-zinc-400">
+                    {dspProgress.isAnalyzing
+                      ? `Decoding waveforms: ${dspProgress.completed}/${dspProgress.total}`
+                      : `${dspProgress.completed}/${dspProgress.total} waveforms matched`}
+                  </span>
+                </>
+              )}
+            </div>
           </div>
-          <span className="font-mono text-xs text-zinc-500 tabular-nums">
-            Showing {visibleRecommendations.length} of {maxFullCount} matched tracks
-          </span>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Matching Mode Segmented Control */}
+            <div
+              role="group"
+              aria-label="Matching mode"
+              className="inline-flex items-center rounded-xl border border-white/[0.08] bg-[#18181B] p-1"
+            >
+              <button
+                type="button"
+                aria-pressed={matchMode === 'balanced'}
+                onClick={() => onMatchModeChange('balanced')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#1DB954] ${
+                  matchMode === 'balanced'
+                    ? 'bg-[#1DB954] text-[#09090B] font-semibold'
+                    : 'text-zinc-400 hover:text-zinc-100'
+                }`}
+              >
+                Same Language + Sound
+              </button>
+              <button
+                type="button"
+                aria-pressed={matchMode === 'sound-only'}
+                onClick={() => onMatchModeChange('sound-only')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#1DB954] ${
+                  matchMode === 'sound-only'
+                    ? 'bg-[#1DB954] text-[#09090B] font-semibold'
+                    : 'text-zinc-400 hover:text-zinc-100'
+                }`}
+              >
+                Pure Sound (All Languages)
+              </button>
+            </div>
+
+            <span className="font-mono text-xs text-zinc-500 tabular-nums whitespace-nowrap">
+              Showing {visibleRecommendations.length} of {maxFullCount}
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
@@ -534,6 +608,7 @@ export function ResultsDashboard({
                 <div className="mt-3.5 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-2.5">
                   <span className="font-mono text-[10.5px] tabular-nums text-zinc-400 truncate">
                     {track.features.bpm} BPM · NRG {track.features.energy.toFixed(2)}
+                    {track.analysisSource === 'audio-dsp' ? ' · Audio' : ''}
                   </span>
 
                   <button
@@ -586,10 +661,10 @@ export function ResultsDashboard({
 
       {/* 7D Radar & Vector Comparison Modal */}
       <AnimatePresence>
-        {selectedNeighbor && (
+        {activeSelectedNeighbor && (
           <VectorComparisonModal
             seedTrack={seedTrack}
-            selectedNeighbor={selectedNeighbor}
+            selectedNeighbor={activeSelectedNeighbor}
             allNeighbors={recommendations}
             activeTrackId={activeTrackId}
             isPlaying={isPlaying}

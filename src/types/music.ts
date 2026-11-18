@@ -24,6 +24,17 @@ export interface AudioFeatures7D {
   speechiness: number;
 }
 
+export interface AudioDspTelemetry {
+  spectralCentroidHz: number;
+  dynamicRangeDb: number;
+  /** 12-band L2-normalized log-frequency spectral energy profile */
+  timbreBands: number[];
+}
+
+export type AnalysisSource = 'metadata' | 'audio-dsp';
+
+export type MatchMode = 'balanced' | 'sound-only';
+
 export interface Track {
   id: string;
   title: string;
@@ -39,11 +50,14 @@ export interface Track {
   durationSec: number;
   previewUrl?: string;
   features: AudioFeatures7D;
+  dsp?: AudioDspTelemetry;
+  analysisSource?: AnalysisSource;
   isSynthesized?: boolean;
 }
 
 export interface RecommendedTrack extends Track {
   similarityPct: number;
+  timbreSimilarityPct?: number;
   dominantTraitMatch: string;
 }
 

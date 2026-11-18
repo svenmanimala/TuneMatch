@@ -1,6 +1,7 @@
 import { ArrowLeftRight, ChevronLeft, ChevronRight, Pause, Play, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useMemo, useState } from 'react';
+import { TIMBRE_BAND_LABELS } from '../audio/acousticDsp';
 import { AUDIO_TRAITS_META } from '../data/catalog';
 import { normalizeFeatureVector } from '../shared/dnaMath';
 import { RecommendedTrack, Track, TraitKey } from '../types/music';
@@ -154,14 +155,24 @@ export function VectorComparisonModal({
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
               <span className="font-mono text-[11px] font-medium tracking-wider text-[#1ED760] uppercase">
-                7D Cosine Vector Comparison
+                Acoustic Vector &amp; Timbre Comparison
               </span>
               <span aria-hidden="true" className="text-zinc-600">
                 ·
               </span>
               <span className="font-mono text-xs font-semibold tabular-nums text-[#1ED760]">
-                {selectedNeighbor.similarityPct.toFixed(1)}% Cosine Match
+                {selectedNeighbor.similarityPct.toFixed(1)}% Overall Match
               </span>
+              {selectedNeighbor.timbreSimilarityPct !== undefined && (
+                <>
+                  <span aria-hidden="true" className="text-zinc-600">
+                    ·
+                  </span>
+                  <span className="font-mono text-xs font-medium tabular-nums text-zinc-300">
+                    {selectedNeighbor.timbreSimilarityPct.toFixed(1)}% Timbre Spectrum
+                  </span>
+                </>
+              )}
               <span aria-hidden="true" className="text-zinc-600">
                 ·
               </span>
@@ -208,7 +219,8 @@ export function VectorComparisonModal({
                   {seedTrack.title}
                 </div>
                 <div className="truncate text-xs text-zinc-400">
-                  {seedTrack.artist} · {seedTrack.language ?? 'English'}
+                  {seedTrack.artist} · {seedTrack.language ?? 'English'} ·{' '}
+                  {seedTrack.analysisSource === 'audio-dsp' ? 'Audio Waveform' : 'Metadata Est.'}
                 </div>
               </div>
             </div>
@@ -246,7 +258,10 @@ export function VectorComparisonModal({
                   {selectedNeighbor.title}
                 </div>
                 <div className="truncate text-xs text-zinc-400">
-                  {selectedNeighbor.artist} · {selectedNeighbor.language ?? 'English'}
+                  {selectedNeighbor.artist} · {selectedNeighbor.language ?? 'English'} ·{' '}
+                  {selectedNeighbor.analysisSource === 'audio-dsp'
+                    ? 'Audio Waveform'
+                    : 'Metadata Est.'}
                 </div>
               </div>
             </div>
@@ -383,6 +398,52 @@ export function VectorComparisonModal({
                 );
               })}
             </svg>
+
+            {/* 12-Band Spectral Timbre Fingerprint Comparison */}
+            {seedTrack.dsp && selectedNeighbor.dsp && (
+              <div className="mt-2 w-full border-t border-white/[0.07] pt-3">
+                <div className="mb-2 flex items-center justify-between text-[10px] font-mono text-zinc-400">
+                  <span>12-Band Frequency Timbre</span>
+                  <span className="tabular-nums text-zinc-300">
+                    {seedTrack.dsp.spectralCentroidHz} Hz vs {selectedNeighbor.dsp.spectralCentroidHz} Hz
+                  </span>
+                </div>
+                <div className="grid h-16 grid-cols-12 items-end gap-1">
+                  {TIMBRE_BAND_LABELS.map((bandLabel, bIdx) => {
+                    const seedVal = seedTrack.dsp?.timbreBands[bIdx] ?? 0;
+                    const neighVal = selectedNeighbor.dsp?.timbreBands[bIdx] ?? 0;
+                    const maxBand = Math.max(
+                      ...(seedTrack.dsp?.timbreBands ?? [0.5]),
+                      ...(selectedNeighbor.dsp?.timbreBands ?? [0.5]),
+                      0.1
+                    );
+                    const seedH = Math.max(8, Math.round((seedVal / maxBand) * 100));
+                    const neighH = Math.max(8, Math.round((neighVal / maxBand) * 100));
+                    return (
+                      <div
+                        key={bandLabel}
+                        title={`${bandLabel}: Seed ${(seedVal * 100).toFixed(0)}% / Neighbor ${(neighVal * 100).toFixed(0)}%`}
+                        className="flex h-full items-end justify-center gap-0.5"
+                      >
+                        <div
+                          className="w-1.5 rounded-t bg-[#1ED760]/85 transition-all duration-300"
+                          style={{ height: `${seedH}%` }}
+                        />
+                        <div
+                          className="w-1.5 rounded-t bg-[#38BDF8]/85 transition-all duration-300"
+                          style={{ height: `${neighH}%` }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-1 flex justify-between font-mono text-[9px] text-zinc-500">
+                  <span>40 Hz Sub</span>
+                  <span>Vocal Mid</span>
+                  <span>16 kHz Air</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 7-Dimension Side-by-Side Vector Delta List */}

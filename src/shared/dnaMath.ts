@@ -517,15 +517,37 @@ export function derive7DFeaturesFromMetadata(
   };
 }
 
+export function computeTimbreSimilarity(aBands?: number[], bBands?: number[]): number | undefined {
+  if (!aBands || !bBands || aBands.length === 0 || aBands.length !== bBands.length) {
+    return undefined;
+  }
+  let dot = 0;
+  let magA = 0;
+  let magB = 0;
+  for (let i = 0; i < aBands.length; i++) {
+    dot += aBands[i] * bBands[i];
+    magA += aBands[i] * aBands[i];
+    magB += bBands[i] * bBands[i];
+  }
+  if (magA === 0 || magB === 0) return undefined;
+  return dot / (Math.sqrt(magA) * Math.sqrt(magB));
+}
+
+export interface RankOptions {
+  ignoreLanguageBoost?: boolean;
+}
+
 export function rankRecommendations(
   seed: Track,
   candidates: Track[],
-  count = 60
+  count = 60,
+  options: RankOptions = {}
 ): RecommendedTrack[] {
   const seedTitleNorm = seed.title.toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').trim();
   const seenKeys = new Set<string>([`${seedTitleNorm}|${seed.artist.toLowerCase()}`]);
   const seedLang =
     seed.language ?? detectTrackLanguage(seed.title, seed.artist, seed.genre, seed.album);
+  const ignoreLanguageBoost = Boolean(options.ignoreLanguageBoost);
 
   interface ScoredCandidate {
     track: RecommendedTrack;
@@ -552,19 +574,33 @@ export function rankRecommendations(
       );
     const sameLang = candLang === seedLang;
 
-    const rawCosine = computeCosineSimilarity(seed.features, candidate.features);
-    const clusterBonus = candidate.clusterId === seed.clusterId ? 0.016 : 0;
-    const adjusted = Math.min(0.994, rawCosine * 0.978 + clusterBonus);
-    const similarityPct = Number((adjusted * 100).toFixed(1));
+    const cosine7D = computeCosineSimilarity(seed.features, candidate.features);
+    const timbreCosine = computeTimbreSimilarity(
+      seed.dsp?.timbreBands,
+      candidate.dsp?.timbreBands
+    );
 
-    // Strongly stick to the same language (+15 rank points), only surfacing cross-language tracks if slots remain or cosine match is extraordinary (>= 98%+)
-    const langBoost = sameLang ? 15 : 0;
+    const blendedAcoustic =
+      timbreCosine !== undefined ? cosine7D * 0.58 + timbreCosine * 0.42 : cosine7D;
+    const clusterBonus = candidate.clusterId === seed.clusterId ? 0.012 : 0;
+    const dspConfidenceBonus =
+      seed.analysisSource === 'audio-dsp' && candidate.analysisSource === 'audio-dsp'
+        ? 0.008
+        : 0;
+    const adjusted = Math.min(0.995, blendedAcoustic * 0.976 + clusterBonus + dspConfidenceBonus);
+    const similarityPct = Number((adjusted * 100).toFixed(1));
+    const timbreSimilarityPct =
+      timbreCosine !== undefined ? Number((timbreCosine * 100).toFixed(1)) : undefined;
+
+    // Strongly stick to the same language (+15 rank points) unless Pure Sound mode is active
+    const langBoost = !ignoreLanguageBoost && sameLang ? 15 : 0;
 
     rawScored.push({
       track: {
         ...candidate,
         language: candLang,
         similarityPct,
+        timbreSimilarityPct,
         dominantTraitMatch: findDominantTraitMatch(seed.features, candidate.features),
       },
       rankScore: similarityPct + langBoost,
@@ -573,6 +609,25 @@ export function rankRecommendations(
   }
 
   rawScored.sort((a, b) => b.rankScore - a.rankScore);
+
+  if (ignoreLanguageBoost) {
+    // Pure "How It Sounds" mode: preserve light artist diversity only (max 3 per artist), ignore language
+    const artistCounts = new Map<string, number>();
+    const diverse: ScoredCandidate[] = [];
+    const overflow: ScoredCandidate[] = [];
+    for (const item of rawScored) {
+      const primaryArtist =
+        item.track.artist.split(/[,&]/)[0]?.trim().toLowerCase() ??
+        item.track.artist.toLowerCase();
+      const currentCount = artistCounts.get(primaryArtist) ?? 0;
+      artistCounts.set(primaryArtist, currentCount + 1);
+      if (currentCount < 3) diverse.push(item);
+      else overflow.push(item);
+    }
+    const combined = [...diverse, ...overflow].slice(0, count);
+    combined.sort((a, b) => b.rankScore - a.rankScore);
+    return combined.map((c) => c.track);
+  }
 
   // Softly promote artist diversity within same-language tracks first, then cross-language fallback
   const artistCounts = new Map<string, number>();

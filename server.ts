@@ -81,6 +81,7 @@ function mapITunesToTrack(item: ITunesSongResult): Track | null {
     durationSec,
     previewUrl: item.previewUrl,
     features,
+    analysisSource: 'metadata',
   };
 }
 
@@ -312,39 +313,40 @@ function getPeerSearchTerms(seed: Track): string[] {
     terms.add('monetochka zivert');
   }
 
-  // Add English/global genre peer queries only for English seeds or when language-specific queries are sparse
-  if (lang === 'English' || terms.size < 4) {
-    if (genre.includes('r&b') || genre.includes('soul')) {
-      terms.add('the weeknd after hours');
-      terms.add('frank ocean blonde');
-      terms.add('sza snooze');
-    } else if (genre.includes('hip-hop') || genre.includes('rap')) {
-      terms.add('kendrick lamar');
-      terms.add('travis scott');
-      terms.add('drake');
-    } else if (genre.includes('rock') || genre.includes('alternative')) {
-      terms.add('tame impala currents');
-      terms.add('arctic monkeys am');
-      terms.add('radiohead');
-    } else if (genre.includes('electronic') || genre.includes('dance')) {
-      terms.add('daft punk discovery');
-      terms.add('rufus du sol');
-      terms.add('odesza');
-    } else if (genre.includes('indie') || genre.includes('folk')) {
-      terms.add('beach house space song');
-      terms.add('bon iver');
-      terms.add('phoebe bridgers');
-    } else if (genre.includes('jazz')) {
-      terms.add('miles davis');
-      terms.add('kamasi washington');
-    } else {
-      terms.add('dua lipa future nostalgia');
-      terms.add('the weeknd blinding lights');
-      terms.add('billie eilish');
-    }
+  // Reserve up to 6-7 same-language queries and append 1-2 sonic/genre queries for cross-language Pure Sound matching
+  const langTerms = Array.from(terms).slice(0, lang === 'English' ? 8 : 6);
+  const combinedTerms = new Set<string>(langTerms);
+
+  if (genre.includes('r&b') || genre.includes('soul')) {
+    combinedTerms.add('the weeknd after hours');
+    combinedTerms.add('frank ocean blonde');
+    combinedTerms.add('sza snooze');
+  } else if (genre.includes('hip-hop') || genre.includes('rap')) {
+    combinedTerms.add('kendrick lamar');
+    combinedTerms.add('travis scott');
+    combinedTerms.add('drake');
+  } else if (genre.includes('rock') || genre.includes('alternative')) {
+    combinedTerms.add('tame impala currents');
+    combinedTerms.add('arctic monkeys am');
+    combinedTerms.add('radiohead');
+  } else if (genre.includes('electronic') || genre.includes('dance')) {
+    combinedTerms.add('daft punk discovery');
+    combinedTerms.add('rufus du sol');
+    combinedTerms.add('odesza');
+  } else if (genre.includes('indie') || genre.includes('folk')) {
+    combinedTerms.add('beach house space song');
+    combinedTerms.add('bon iver');
+    combinedTerms.add('phoebe bridgers');
+  } else if (genre.includes('jazz')) {
+    combinedTerms.add('miles davis');
+    combinedTerms.add('kamasi washington');
+  } else {
+    combinedTerms.add('dua lipa future nostalgia');
+    combinedTerms.add('the weeknd blinding lights');
+    combinedTerms.add('billie eilish');
   }
 
-  return Array.from(terms).slice(0, 8);
+  return Array.from(combinedTerms).slice(0, 8);
 }
 
 const UNWANTED_TITLE_RE =
@@ -502,11 +504,24 @@ async function startServer() {
     const candidatePool =
       livePool.length >= 60 ? livePool : [...livePool, ...TRACK_CATALOG];
 
-    let recommendations = rankRecommendations(seed, candidatePool, 65);
+    // Build both same-language prioritized pool and cross-language sonic pool
+    const balancedRanked = rankRecommendations(seed, candidatePool, 60);
+    const soundOnlyRanked = rankRecommendations(seed, candidatePool, 30, {
+      ignoreLanguageBoost: true,
+    });
+
+    const combinedSeen = new Set<string>();
+    const combinedToEnrich: typeof balancedRanked = [];
+    for (const item of [...balancedRanked, ...soundOnlyRanked]) {
+      if (!combinedSeen.has(item.id)) {
+        combinedSeen.add(item.id);
+        combinedToEnrich.push(item);
+      }
+    }
 
     // Enrich any remaining recommendations that lack previewUrl or real album art
-    const enrichedRecommendations = await Promise.all(
-      recommendations.map(async (rec) => {
+    const enrichedPool = await Promise.all(
+      combinedToEnrich.map(async (rec) => {
         if (rec.previewUrl && !rec.coverArt.startsWith('/src/')) return rec;
         const hits = await fetchITunesSongs(`${rec.title} ${rec.artist}`, 10);
         const match = pickBestSeedHit(hits, rec.title, rec.artist);
@@ -521,18 +536,17 @@ async function startServer() {
     );
 
     // Prefer 100% real playable tracks with official cover art whenever available
-    const verifiedPlayable = enrichedRecommendations.filter(
+    const verifiedPlayable = enrichedPool.filter(
       (rec) => Boolean(rec.previewUrl) && !rec.coverArt.startsWith('/src/')
     );
 
-    recommendations =
-      verifiedPlayable.length >= 20
-        ? verifiedPlayable.slice(0, 55)
-        : enrichedRecommendations.slice(0, 55);
+    const activePool = verifiedPlayable.length >= 20 ? verifiedPlayable : enrichedPool;
+    const recommendations = rankRecommendations(seed, activePool, 55);
 
     res.json({
       seedTrack: seed,
       recommendations,
+      candidatePool: activePool.slice(0, 75),
     });
   });
 

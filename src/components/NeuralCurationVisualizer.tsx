@@ -10,9 +10,9 @@ interface NeuralCurationVisualizerProps {
 }
 
 const STATUS_CAPTIONS = [
-  'Extracting 7D acoustic DNA...',
-  'Projecting track into K-Means mood cluster...',
-  'Computing cosine similarity across 25,000 vectors...',
+  'Decoding 30-second audio waveform & FFT spectrum...',
+  'Extracting 7D acoustic DNA & 12-band timbre profile...',
+  'Measuring tempo onsets & spectral similarity...',
   'Curating your sonic matches...',
 ];
 
